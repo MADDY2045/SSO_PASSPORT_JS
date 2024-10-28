@@ -66,6 +66,6 @@ app.all('*', (req, res, next) => {
   next(new AppError(`Can't find ${req.originalUrl} on the server`, 404));
 });
 
-app.use(errorController); // <- Error Handling Middleware
+app.use(errorController); // <- Error Handling Middleware under errorController.js
 
 module.exports = app;

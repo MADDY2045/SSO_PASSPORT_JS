@@ -47,10 +47,17 @@ exports.googleAuth = catchAsync(async (req, res, next) => {
   const code = req.query.code;
   console.log('USER CREDENTIAL -> ', code);
 
+  /**
+   * Uses the oauth2Client to exchange the authorization code for an access token (googleRes).
+   * Sets the obtained credentials (googleRes.tokens) for future API calls using setCredentials.
+   */
   const googleRes = await oauth2Client.oauth2Client.getToken(code);
-
   oauth2Client.oauth2Client.setCredentials(googleRes.tokens);
 
+  /**
+   * Makes an HTTP GET request to Google's API to fetch user info using the access token.
+   * userRes contains the user's information retrieved from Google's API.
+   */
   const userRes = await axios.get(
     `https://www.googleapis.com/oauth2/v1/userinfo?alt=json&access_token=${googleRes.tokens.access_token}`
   );
