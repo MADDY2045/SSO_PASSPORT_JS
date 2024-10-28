@@ -1,63 +1,55 @@
-// server.js
-const express = require('express');
+const dotenv = require('dotenv');
 const mongoose = require('mongoose');
-const bodyParser = require('body-parser');
-const jwt = require('jsonwebtoken');
-const User = require('./models/User');
-const app = express();
-const PORT = process.env.PORT || 5000;
 
-const passport = require('passport');
-const GoogleStrategy = require('passport-google-oauth20').Strategy;
+dotenv.config({ path: './config.env' });
 
-passport.use(
-  new GoogleStrategy(
-    {
-      clientID: 'YOUR_GOOGLE_CLIENT_ID',
-      clientSecret: 'YOUR_GOOGLE_CLIENT_SECRET',
-      callbackURL: '/auth/google/callback',
-    },
-    (accessToken, refreshToken, profile, done) => {
-      User.findOrCreate({ googleId: profile.id }, (err, user) => {
-        return done(err, user);
-      });
-    }
-  )
+const app = require('./app.js');
+
+// Below snippet is used to connect to DB. This is disablled becouse we will not be needing Database for this project
+
+// Connecting to DATABASE ->>
+const DB = process.env.DATABASE.replace(
+  '<PASSWORD>',
+  process.env.DATABASE_PASSWORD
 );
 
-app.get(
-  '/auth/google',
-  passport.authenticate('google', { scope: ['profile', 'email'] })
-);
-app.get(
-  '/auth/google/callback',
-  passport.authenticate('google', { failureRedirect: '/login' }),
-  (req, res) => {
-    res.redirect('/dashboard');
-  }
-);
+mongoose
+  .connect('mongodb://localhost/mern-sso', {
+    // <- Using Mongoose Connection
+    useNewUrlParser: true,
+    useCreateIndex: true,
+    useFindAndModify: false,
+    useUnifiedTopology: true,
+  })
+  .then(() => {
+    console.log('DB connection established');
+  })
+  .catch((err) => {
+    console.log('DB CONNECTION FAILED');
+    console.log('ERR: ', err);
+  });
 
-mongoose.connect('mongodb://localhost/mern-sso', {
-  //   useNewUrlParser: true,
-  //   useUnifiedTopology: true,
+// Catching uncaught exception ->>
+process.on('unCaughtException', (err) => {
+  console.log(`UNCAUGHT EXCEPTION -> ${err.name} - ${err.message}`);
+  console.log('App SHUTTING DOWN...');
+  process.exit(1); // <- Then will shut down the server.
 });
 
-app.use(bodyParser.json());
-
-app.post('/register', async (req, res) => {
-  const { name, email, password } = req.body;
-  const newUser = new User({ name, email, password });
-  await newUser.save();
-  res.send('User registered successfully');
+// Starting Server ->>
+const port = process.env.PORT || 5000;
+const server = app.listen(port, () => {
+  console.log(`App running at port`, `${port}`, '...');
 });
 
-app.post('/login', async (req, res) => {
-  const { email, password } = req.body;
-  const user = await User.findOne({ email, password });
-  if (!user) return res.status(401).send('Invalid credentials');
+// Catching unHandleled Rejections ->
+process.on('unhandledRejection', (err) => {
+  console.log(`UNHANDELLED REJECTION -> ${err.name} - ${err.message}`);
+  console.log(err);
+  console.log('App SHUTTING DOWN...');
+  server.close(() => {
+    // <- This will first terminate all requests
 
-  const token = jwt.sign({ _id: user._id }, 'secretKey');
-  res.send({ token });
+    process.exit(1); // <- Then will shut down the server.
+  });
 });
-
-app.listen(PORT, () => console.log(`Server running on port ${PORT}`));
